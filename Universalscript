@@ -1,3 +1,43 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Thay đổi tên player bạn muốn ESP
+local targetPlayerName = "Bl_viethuybao" 
+
+-- Lấy player
+local targetPlayer = Players:FindFirstChild(targetPlayerName)
+if not targetPlayer then
+    warn("Người chơi không tồn tại!( T∀T)")
+    return
+end
+
+-- Lấy character
+local character = targetPlayer.Character or targetPlayer.CharacterAdded:Wait()
+local head = character:WaitForChild("Head")
+
+-- Tạo BillboardGui
+local billboard = Instance.new("BillboardGui")
+billboard.Size = UDim2.new(0,120,0,50)
+billboard.Adornee = head
+billboard.AlwaysOnTop = true
+billboard.Parent = head
+
+-- Tạo TextLabel
+local label = Instance.new("TextLabel")
+label.Size = UDim2.new(1,0,1,0)
+label.BackgroundTransparency = 1
+label.TextColor3 = Color3.fromRGB(255,0,0)
+label.TextScaled = true
+label.Text = targetPlayer.Name
+label.Parent = billboard
+
+-- Cập nhật ESP nếu player respawn
+targetPlayer.CharacterAdded:Connect(function(char)
+    character = char
+    head = character:WaitForChild("Head")
+    billboard.Adornee = head
+end)
+task.wait(2)
 local player = game.Players.LocalPlayer
 local StarterGui = game:GetService("StarterGui")
 
