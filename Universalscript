@@ -1,0 +1,256 @@
+local player = game.Players.LocalPlayer
+local StarterGui = game:GetService("StarterGui")
+
+StarterGui:SetCore("SendNotification", {
+    Title = "Thông báo🗣";
+    Text = "loading script...";
+    Duration = 2; -- giây
+    Button1 = "(^.^)"; -- nút bấm (tuỳ chọn)
+})
+task.wait(1)
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local flying = false
+local camCF = nil
+local speed = 5
+local smoothness = 0.15
+local targetPos
+local defaultCameraType = camera.CameraType
+
+-------------------------------------------------
+-- 💫 Neon Startup Intro
+-------------------------------------------------
+local startup = Instance.new("ScreenGui")
+startup.Name = "StartupUI"
+startup.ResetOnSpawn = false
+startup.Parent = player:WaitForChild("PlayerGui")
+
+local bg = Instance.new("Frame")
+bg.Size = UDim2.new(1, 0, 1, 0)
+bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+bg.BackgroundTransparency = 0.3
+bg.Parent = startup
+
+-- Dòng chính
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(0.8, 0, 0.2, 0)
+title.Position = UDim2.new(0.1, 0, 0.4, 0)
+title.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+title.Text = "🚀 Initializing FlyCam System..."
+title.TextColor3 = Color3.fromRGB(100, 255, 150)
+title.Font = Enum.Font.GothamBlack
+title.TextScaled = true
+title.Parent = bg
+
+local titleCorner = Instance.new("UICorner", title)
+titleCorner.CornerRadius = UDim.new(0, 30)
+
+local titleStroke = Instance.new("UIStroke", title)
+titleStroke.Thickness = 4
+titleStroke.Color = Color3.fromRGB(0, 255, 150)
+
+-- Dòng phụ nghiêng
+local sub = Instance.new("TextLabel")
+sub.Size = UDim2.new(0.8, 0, 0.1, 0)
+sub.Position = UDim2.new(0.1, 0, 0.56, 0)
+sub.BackgroundTransparency = 1
+sub.Text = ">> Version 7.1 | Powered by ScriptshopDEV ⚡"
+sub.TextColor3 = Color3.fromRGB(150, 255, 200)
+sub.Font = Enum.Font.GothamSemibold
+sub.TextScaled = true
+sub.Rotation = -10
+sub.Parent = bg
+
+local subStroke = Instance.new("UIStroke", sub)
+subStroke.Thickness = 2
+subStroke.Color = Color3.fromRGB(0, 255, 150)
+
+-- Hiệu ứng fade in/out
+title.TextTransparency, title.BackgroundTransparency, titleStroke.Transparency = 1, 1, 1
+sub.TextTransparency, subStroke.Transparency = 1, 1
+
+-- Fade in
+for i = 1, 20 do
+	local t = i / 20
+	title.TextTransparency = 1 - t
+	title.BackgroundTransparency = 1 - t
+	titleStroke.Transparency = 1 - t
+	sub.TextTransparency = 1 - t
+	subStroke.Transparency = 1 - t
+	task.wait(0.05)
+end
+
+-- Giữ 3s
+task.wait(3)
+
+-- Fade out
+for i = 1, 20 do
+	local t = i / 20
+	title.TextTransparency = t
+	title.BackgroundTransparency = t
+	titleStroke.Transparency = t
+	sub.TextTransparency = t
+	subStroke.Transparency = t
+	task.wait(0.03)
+end
+startup:Destroy()
+
+-------------------------------------------------
+-- 🎵 Âm thanh tên lửa
+-------------------------------------------------
+local rocketSound = Instance.new("Sound")
+rocketSound.SoundId = "rbxassetid://9118823106"
+rocketSound.Looped = true
+rocketSound.Volume = 1
+rocketSound.PlaybackSpeed = 1.1
+rocketSound.Parent = SoundService
+
+-------------------------------------------------
+-- 🧭 FlyCam GUI
+-------------------------------------------------
+local gui = Instance.new("ScreenGui")
+gui.Name = "FlyCamUI"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+-- Nút bật/tắt
+local flyBtn = Instance.new("TextButton")
+flyBtn.Size = UDim2.new(0, 160, 0, 60)
+flyBtn.Position = UDim2.new(0.5, -80, 0.85, 0)
+flyBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+flyBtn.TextColor3 = Color3.new(1, 1, 1)
+flyBtn.Font = Enum.Font.GothamBold
+flyBtn.TextSize = 20
+flyBtn.Text = "🕹️ FlyCam OFF"
+flyBtn.Parent = gui
+
+local flyCorner = Instance.new("UICorner", flyBtn)
+flyCorner.CornerRadius = UDim.new(0, 10)
+
+-- Joystick di chuyển
+local joystick = Instance.new("Frame")
+joystick.Size = UDim2.new(0, 140, 0, 140)
+joystick.Position = UDim2.new(0.82, 0, 0.52, 0)
+joystick.BackgroundTransparency = 1
+joystick.Parent = gui
+
+local outer = Instance.new("ImageLabel")
+outer.Size = UDim2.new(0, 140, 0, 140)
+outer.Image = "rbxassetid://3570695787"
+outer.ImageColor3 = Color3.fromRGB(90, 90, 90)
+outer.ImageTransparency = 0.4
+outer.BackgroundTransparency = 1
+outer.Parent = joystick
+
+local inner = Instance.new("ImageLabel")
+inner.Size = UDim2.new(0, 50, 0, 50)
+inner.Position = UDim2.new(0.5, -25, 0.5, -25)
+inner.Image = "rbxassetid://3570695787"
+inner.ImageColor3 = Color3.fromRGB(100, 255, 150)
+inner.BackgroundTransparency = 1
+inner.Parent = joystick
+
+-------------------------------------------------
+-- 🎮 Joystick logic
+-------------------------------------------------
+local dragging = false
+local startPos
+local moveVec = Vector3.zero
+
+outer.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		startPos = input.Position
+	end
+end)
+
+outer.InputChanged:Connect(function(input)
+	if dragging and input.UserInputType == Enum.UserInputType.Touch then
+		local delta = input.Position - startPos
+		local clamped = Vector2.new(math.clamp(delta.X, -60, 60), math.clamp(delta.Y, -60, 60))
+		inner.Position = UDim2.new(0.5, clamped.X - 25, 0.5, clamped.Y - 25)
+		moveVec = Vector3.new(clamped.X / 60, 0, clamped.Y / 60)
+	end
+end)
+
+outer.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch then
+		dragging = false
+		moveVec = Vector3.zero
+		inner.Position = UDim2.new(0.5, -25, 0.5, -25)
+	end
+end)
+
+-------------------------------------------------
+-- 🚀 Fly Toggle
+-------------------------------------------------
+local function toggleFly()
+	flying = not flying
+	if flying then
+		camCF = camera.CFrame
+		targetPos = camCF.Position
+		camera.CameraType = Enum.CameraType.Scriptable
+		flyBtn.Text = "🚀 FlyCam ON"
+		flyBtn.BackgroundColor3 = Color3.fromRGB(20, 80, 30)
+		rocketSound:Play()
+	else
+		camera.CameraType = defaultCameraType
+		flyBtn.Text = "🕹️ FlyCam OFF"
+		flyBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+		rocketSound:Stop()
+
+		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			local hrp = player.Character.HumanoidRootPart
+			hrp.CFrame = CFrame.new(camCF.Position, camCF.Position + camCF.LookVector)
+		end
+	end
+end
+flyBtn.MouseButton1Click:Connect(toggleFly)
+
+-------------------------------------------------
+-- 📸 Camera xoay
+-------------------------------------------------
+local rotating = false
+local lastTouch
+
+UserInputService.TouchStarted:Connect(function(input)
+	if flying then
+		rotating = true
+		lastTouch = input.Position
+	end
+end)
+
+UserInputService.TouchMoved:Connect(function(input)
+	if flying and rotating then
+		local delta = input.Position - lastTouch
+		lastTouch = input.Position
+		local yaw = -delta.X * 0.0025
+		local pitch = -delta.Y * 0.0025
+		camera.CFrame = camera.CFrame * CFrame.Angles(pitch, yaw, 0)
+	end
+end)
+
+UserInputService.TouchEnded:Connect(function()
+	rotating = false
+end)
+
+-------------------------------------------------
+-- 🧠 Cập nhật bay mượt
+-------------------------------------------------
+RunService.RenderStepped:Connect(function()
+	if flying then
+		local cam = camera.CFrame
+		local forward = cam.LookVector
+		local right = cam.RightVector
+		local move = (right * moveVec.X + forward * -moveVec.Z) * speed
+		targetPos = targetPos:Lerp(targetPos + move, smoothness)
+		camCF = CFrame.new(targetPos, targetPos + cam.LookVector)
+		camera.CFrame = camCF
+	end
+end)
